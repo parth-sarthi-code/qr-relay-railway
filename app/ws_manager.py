@@ -1,0 +1,150 @@
+"""High-performance WebSocket connection manager for binary image relay."""
+
+import asyncio
+import json
+import time
+from typing import Dict, Optional
+
+from fastapi import WebSocket
+
+from app.config import settings
+
+
+class WebSocketManager:
+    """Manages sender/viewer WebSocket connections and binary frame fan-out."""
+
+    def __init__(self) -> None:
+        # WebSocket → role mapping: "sender" | "viewer" | None (unannounced)
+        self._connections: Dict[WebSocket, Optional[str]] = {}
+        self._lock = asyncio.Lock()
+
+        # Cached latest binary frame — sent to new viewers on connect
+        self._latest_frame: Optional[bytes] = None
+        self._latest_frame_time: float = 0.0
+
+    # ------------------------------------------------------------------
+    # Connection lifecycle
+    # ------------------------------------------------------------------
+
+    async def connect(self, websocket: WebSocket) -> bool:
+        """Accept and register a new WebSocket. Returns False if at capacity."""
+        async with self._lock:
+            if len(self._connections) >= settings.MAX_CONNECTIONS:
+                await websocket.close(code=1013, reason="Server at capacity")
+                return False
+            await websocket.accept()
+            self._connections[websocket] = None
+
+        await self._broadcast_status()
+        return True
+
+    async def disconnect(self, websocket: WebSocket) -> None:
+        """Unregister a WebSocket connection."""
+        async with self._lock:
+            self._connections.pop(websocket, None)
+        await self._broadcast_status()
+
+    async def set_role(self, websocket: WebSocket, role: str) -> None:
+        """Set the role for a connection ('sender' or 'viewer')."""
+        async with self._lock:
+            if websocket in self._connections:
+                self._connections[websocket] = role
+
+        # If a viewer just announced, send them the cached frame immediately
+        if role == "viewer" and self._latest_frame is not None:
+            asyncio.create_task(self._safe_send_bytes(websocket, self._latest_frame))
+
+        await self._broadcast_status()
+
+    # ------------------------------------------------------------------
+    # Binary relay — the hot path
+    # ------------------------------------------------------------------
+
+    async def broadcast_binary(self, data: bytes) -> None:
+        """Cache the frame and fan-out to all viewers concurrently."""
+        if len(data) > settings.MAX_FRAME_SIZE:
+            return  # reject oversized blobs silently
+
+        self._latest_frame = data
+        self._latest_frame_time = time.monotonic()
+
+        async with self._lock:
+            viewers = [
+                ws for ws, role in self._connections.items() if role == "viewer"
+            ]
+
+        # Fire-and-forget concurrent sends — never block the sender's upload loop
+        for ws in viewers:
+            asyncio.create_task(self._safe_send_bytes(ws, data))
+
+
+
+    # ------------------------------------------------------------------
+    # Safe send helpers
+    # ------------------------------------------------------------------
+
+    async def _safe_send_bytes(self, ws: WebSocket, data: bytes) -> None:
+        """Send binary data with timeout. Disconnects on failure."""
+        try:
+            await asyncio.wait_for(
+                ws.send_bytes(data), timeout=settings.SEND_TIMEOUT
+            )
+        except Exception:
+            await self._remove(ws)
+
+    async def _safe_send_text(self, ws: WebSocket, text: str) -> None:
+        """Send text data with timeout. Disconnects on failure."""
+        try:
+            await asyncio.wait_for(
+                ws.send_text(text), timeout=settings.SEND_TIMEOUT
+            )
+        except Exception:
+            await self._remove(ws)
+
+    async def _remove(self, ws: WebSocket) -> None:
+        """Remove a connection without re-broadcasting (avoids recursion)."""
+        async with self._lock:
+            self._connections.pop(ws, None)
+
+    # ------------------------------------------------------------------
+    # Status broadcasting
+    # ------------------------------------------------------------------
+
+    async def _broadcast_status(self) -> None:
+        """Send connection counts to all peers."""
+        async with self._lock:
+            senders = sum(1 for r in self._connections.values() if r == "sender")
+            viewers = sum(1 for r in self._connections.values() if r == "viewer")
+            all_ws = list(self._connections.keys())
+
+        payload = json.dumps({
+            "type": "status",
+            "senders": senders,
+            "viewers": viewers,
+        })
+        for ws in all_ws:
+            asyncio.create_task(self._safe_send_text(ws, payload))
+
+    # ------------------------------------------------------------------
+    # Stats endpoint
+    # ------------------------------------------------------------------
+
+    async def get_stats(self) -> dict:
+        """Return current connection statistics."""
+        async with self._lock:
+            senders = sum(1 for r in self._connections.values() if r == "sender")
+            viewers = sum(1 for r in self._connections.values() if r == "viewer")
+            total = len(self._connections)
+
+        return {
+            "status": "ok",
+            "total_connections": total,
+            "senders": senders,
+            "viewers": viewers,
+            "has_cached_frame": self._latest_frame is not None,
+            "max_connections": settings.MAX_CONNECTIONS,
+        }
+
+
+# Singleton instance used across the application
+manager = WebSocketManager()

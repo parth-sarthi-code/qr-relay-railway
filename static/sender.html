@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>QR Sender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0f;
+      --surface: #16161a;
+      --surface2: #1e1e24;
+      --border: #2a2a32;
+      --text: #e8e8ed;
+      --text-dim: #8a8a96;
+      --accent: #6c5ce7;
+      --accent-glow: rgba(108, 92, 231, 0.25);
+      --green: #00c853;
+      --red: #ff3d57;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 480px;
+      height: 100dvh;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.3s;
+    }
+    .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* ---- Camera ---- */
+    .camera-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      flex-shrink: 0;
+    }
+    video {
+      display: block;
+      width: 100%;
+      aspect-ratio: 3/4;
+      max-height: 46dvh;
+      object-fit: cover;
+    }
+    .scan-overlay {
+      position: absolute;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      pointer-events: none;
+      transition: all 0.08s ease-out;
+      box-shadow: 0 0 12px var(--accent-glow);
+      display: none;
+    }
+
+    /* ---- Info Cards ---- */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .card-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .card.full { grid-column: 1 / -1; }
+
+    /* ---- Controls ---- */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+      padding-bottom: 8px;
+    }
+    .control-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+    .control-row label {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 6px;
+    }
+    select {
+      width: 100%;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .zoom-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+    .zoom-val {
+      font-size: 0.85rem;
+      font-weight: 600;
+      min-width: 40px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1>QR Sender</h1>
+      <div class="status-pill">
+        <span id="dot" class="dot"></span>
+        <span id="connLabel">Offline</span>
+      </div>
+    </div>
+
+    <div class="camera-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="scanOverlay" class="scan-overlay"></div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Latency</div>
+        <div class="card-value" id="latencyVal">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Peers</div>
+        <div class="card-value" id="peersVal">S:0 V:0</div>
+      </div>
+      <div class="card full">
+        <div class="card-label">Status</div>
+        <div class="card-value" id="statusVal">Starting camera…</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-row">
+        <label for="camSelect">Camera</label>
+        <select id="camSelect"></select>
+      </div>
+      <div class="control-row">
+        <label for="zoomSlider">Zoom</label>
+        <div class="zoom-row">
+          <input id="zoomSlider" type="range" min="1" max="1" step="0.1" value="1" disabled />
+          <span class="zoom-val" id="zoomVal">1.0×</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script>
+    /* ========== DOM refs ========== */
+    const video      = document.getElementById('video');
+    const overlay    = document.getElementById('scanOverlay');
+    const dot        = document.getElementById('dot');
+    const connLabel  = document.getElementById('connLabel');
+    const latencyVal = document.getElementById('latencyVal');
+    const peersVal   = document.getElementById('peersVal');
+    const statusVal  = document.getElementById('statusVal');
+    const camSelect  = document.getElementById('camSelect');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomVal    = document.getElementById('zoomVal');
+
+    /* ========== State ========== */
+    const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl   = `${wsProto}://${location.host}/ws`;
+    let socket = null;
+    let videoTrack = null;
+    let activeStream = null;
+    let lastQRText = null;
+    let scanStarted = false;
+    let lastScanTime = 0;
+
+    // Offscreen canvases — allocated once, reused every frame
+    const detectCanvas = document.createElement('canvas');
+    const detectCtx    = detectCanvas.getContext('2d', { willReadFrequently: true });
+    const cropCanvas   = document.createElement('canvas');
+    const cropCtx      = cropCanvas.getContext('2d');
+
+    // BarcodeDetector singleton (if supported)
+    let nativeDetector = null;
+    let useNative = false;
+    (async () => {
+      if (window.BarcodeDetector) {
+        try {
+          const formats = await BarcodeDetector.getSupportedFormats();
+          if (formats.includes('qr_code')) {
+            nativeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+            useNative = true;
+          }
+        } catch (_) { /* fallback to jsQR */ }
+      }
+    })();
+
+    /* ========== WebSocket ========== */
+    function connectWS() {
+      socket = new WebSocket(wsUrl);
+      socket.binaryType = 'arraybuffer';
+
+      socket.addEventListener('open', () => {
+        dot.classList.add('on');
+        connLabel.textContent = 'Online';
+        socket.send(JSON.stringify({ type: 'role', role: 'sender' }));
+      });
+
+      socket.addEventListener('message', (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.type === 'status') {
+            peersVal.textContent = `S:${msg.senders} V:${msg.viewers}`;
+          }
+        } catch (_) { /* binary or non-JSON — ignore on sender */ }
+      });
+
+      socket.addEventListener('close', () => {
+        dot.classList.remove('on');
+        connLabel.textContent = 'Offline';
+        setTimeout(connectWS, 1000);
+      });
+
+      socket.addEventListener('error', () => {
+        socket.close();
+      });
+    }
+    connectWS();
+
+    /* ========== Camera ========== */
+    async function startCamera(deviceId) {
+      try {
+        if (activeStream) activeStream.getTracks().forEach(t => t.stop());
+
+        const constraint = deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { facingMode: 'environment' };
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { ...constraint, width: { ideal: 1280 }, height: { ideal: 960 } },
+          audio: false,
+        });
+
+        activeStream = stream;
+        video.srcObject = stream;
+        videoTrack = stream.getVideoTracks()[0] || null;
+        setupZoom(videoTrack);
+        await populateCameras(videoTrack?.getSettings?.()?.deviceId);
+        statusVal.textContent = 'Camera active — scanning';
+
+        if (!scanStarted) {
+          scanStarted = true;
+          requestAnimationFrame(tick);
+        }
+      } catch (err) {
+        statusVal.textContent = `Camera error: ${err.message}`;
+      }
+    }
+
+    async function populateCameras(currentId) {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      camSelect.innerHTML = '';
+      cams.forEach((c, i) => {
+        const opt = document.createElement('option');
+        opt.value = c.deviceId;
+        opt.textContent = c.label || `Camera ${i + 1}`;
+        camSelect.appendChild(opt);
+      });
+      if (currentId) camSelect.value = currentId;
+    }
+
+    camSelect.addEventListener('change', () => {
+      if (camSelect.value) startCamera(camSelect.value);
+    });
+
+    function setupZoom(track) {
+      if (!track?.getCapabilities) { zoomSlider.disabled = true; return; }
+      const caps = track.getCapabilities();
+      if (!caps.zoom) { zoomSlider.disabled = true; return; }
+      zoomSlider.min = String(caps.zoom.min ?? 1);
+      zoomSlider.max = String(caps.zoom.max ?? 1);
+      zoomSlider.step = String(caps.zoom.step ?? 0.1);
+      const init = Number(track.getSettings?.()?.zoom ?? caps.zoom.min ?? 1);
+      zoomSlider.value = String(init);
+      zoomVal.textContent = `${init.toFixed(1)}×`;
+      zoomSlider.disabled = false;
+      zoomSlider.oninput = async () => {
+        const v = Number(zoomSlider.value);
+        zoomVal.textContent = `${v.toFixed(1)}×`;
+        try { await track.applyConstraints({ advanced: [{ zoom: v }] }); } catch (_) {}
+      };
+    }
+
+    /* ========== Detection & Crop Loop ========== */
+    const SCAN_INTERVAL = 120; // ms — ~8 Hz
+    const DETECT_MAX_DIM = 480; // downscale for fast detection
+    const CROP_SIZE = 300;      // export crop canvas size
+
+    async function tick() {
+      requestAnimationFrame(tick);
+      if (video.readyState < video.HAVE_ENOUGH_DATA) return;
+
+      const now = performance.now();
+      if (now - lastScanTime < SCAN_INTERVAL) return;
+      lastScanTime = now;
+
+      // ---- Downscale for detection ----
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+
+      const scale = Math.min(DETECT_MAX_DIM / vw, DETECT_MAX_DIM / vh, 1);
+      const dw = Math.round(vw * scale);
+      const dh = Math.round(vh * scale);
+
+      if (detectCanvas.width !== dw || detectCanvas.height !== dh) {
+        detectCanvas.width = dw;
+        detectCanvas.height = dh;
+      }
+      detectCtx.drawImage(video, 0, 0, dw, dh);
+
+      let qrText = null;
+      let bbox = null; // { x, y, w, h } in DETECT canvas coords
+
+      // ---- Try native BarcodeDetector ----
+      if (useNative && nativeDetector) {
+        try {
+          const results = await nativeDetector.detect(detectCanvas);
+          if (results.length > 0) {
+            qrText = results[0].rawValue;
+            const bb = results[0].boundingBox;
+            bbox = { x: bb.x, y: bb.y, w: bb.width, h: bb.height };
+          }
+        } catch (_) { /* fall through to jsQR */ }
+      }
+
+      // ---- jsQR fallback ----
+      if (!qrText) {
+        try {
+          const imgData = detectCtx.getImageData(0, 0, dw, dh);
+          const code = jsQR(imgData.data, dw, dh);
+          if (code && code.data) {
+            qrText = code.data;
+            // Compute bounding box from corner locations
+            const loc = code.location;
+            const xs = [loc.topLeftCorner.x, loc.topRightCorner.x, loc.bottomLeftCorner.x, loc.bottomRightCorner.x];
+            const ys = [loc.topLeftCorner.y, loc.topRightCorner.y, loc.bottomLeftCorner.y, loc.bottomRightCorner.y];
+            const minX = Math.min(...xs);
+            const minY = Math.min(...ys);
+            bbox = {
+              x: minX,
+              y: minY,
+              w: Math.max(...xs) - minX,
+              h: Math.max(...ys) - minY,
+            };
+          }
+        } catch (_) {}
+      }
+
+      // ---- No QR found ----
+      if (!qrText || !bbox) {
+        overlay.style.display = 'none';
+        return;
+      }
+
+      // ---- Show overlay on the video element ----
+      showOverlay(bbox, scale);
+
+      // ---- Only send if QR content changed ----
+      if (qrText === lastQRText) return;
+      lastQRText = qrText;
+
+      // ---- Crop from FULL-RES video frame ----
+      // Convert detect-canvas bbox back to full-res coords
+      const pad = 0.25; // 25% extra area around QR
+      const fx = bbox.x / scale;
+      const fy = bbox.y / scale;
+      const fw = bbox.w / scale;
+      const fh = bbox.h / scale;
+
+      // Make it square: use the larger side, then add padding
+      const side = Math.max(fw, fh);
+      const padded = side * (1 + pad * 2);
+      // Center the square on the QR center
+      const centerX = fx + fw / 2;
+      const centerY = fy + fh / 2;
+      const cx = Math.max(0, Math.round(centerX - padded / 2));
+      const cy = Math.max(0, Math.round(centerY - padded / 2));
+      const cw = Math.min(Math.round(padded), vw - cx);
+      const ch = Math.min(Math.round(padded), vh - cy);
+      // Keep it square after clamping
+      const cropSide = Math.min(cw, ch);
+
+      cropCanvas.width = CROP_SIZE;
+      cropCanvas.height = CROP_SIZE;
+      cropCtx.drawImage(video, cx, cy, cropSide, cropSide, 0, 0, CROP_SIZE, CROP_SIZE);
+
+      // ---- Apply Grayscale & Boost Contrast ----
+      try {
+        const imgData = cropCtx.getImageData(0, 0, CROP_SIZE, CROP_SIZE);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i];
+          const g = d[i + 1];
+          const b = d[i + 2];
+          // Grayscale conversion using luminance formula
+          let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          
+          // Boost contrast (values below 128 go darker, values above go lighter)
+          // factor of 3.5 gives a strong, clean separation of black and white modules
+          const factor = 3.5;
+          gray = factor * (gray - 128) + 128;
+          gray = Math.max(0, Math.min(255, gray));
+
+          d[i] = gray;
+          d[i + 1] = gray;
+          d[i + 2] = gray;
+        }
+        cropCtx.putImageData(imgData, 0, 0);
+      } catch (e) {
+        console.error("Failed to apply grayscale/contrast filter:", e);
+      }
+
+      // ---- Compress & send ----
+      const t0 = performance.now();
+      const decodedText = qrText; // capture for closure
+      cropCanvas.toBlob((blob) => {
+        if (!blob) return;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(blob);
+          const elapsed = Math.round(performance.now() - t0);
+          latencyVal.textContent = `${elapsed}ms`;
+          statusVal.textContent = `Sent crop (${(blob.size / 1024).toFixed(1)} KB)`;
+        } else {
+          statusVal.textContent = 'Detected — WS not connected';
+        }
+      }, 'image/png');
+    }
+
+    function showOverlay(bbox, scale) {
+      // bbox is in detect-canvas coords, video element is sized differently
+      const rect = video.getBoundingClientRect();
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+
+      // Scale bbox from detect coords → full-res → element coords
+      const elScaleX = rect.width / vw;
+      const elScaleY = rect.height / vh;
+
+      const ox = (bbox.x / scale) * elScaleX;
+      const oy = (bbox.y / scale) * elScaleY;
+      const ow = (bbox.w / scale) * elScaleX;
+      const oh = (bbox.h / scale) * elScaleY;
+
+      overlay.style.display = 'block';
+      overlay.style.left   = `${ox}px`;
+      overlay.style.top    = `${oy}px`;
+      overlay.style.width  = `${ow}px`;
+      overlay.style.height = `${oh}px`;
+    }
+
+    /* ========== Init ========== */
+    startCamera();
+  </script>
+</body>
+</html>
