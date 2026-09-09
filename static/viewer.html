@@ -193,6 +193,8 @@
     let prevObjectURL = null;
 
     /* ========== WebSocket ========== */
+    let pingTimer = null;
+
     function connectWS() {
       socket = new WebSocket(wsUrl);
       socket.binaryType = 'blob';
@@ -201,6 +203,13 @@
         dot.classList.add('on');
         connLabel.textContent = 'Online';
         socket.send(JSON.stringify({ type: 'role', role: 'viewer' }));
+
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 20000);
       });
 
       socket.addEventListener('message', (ev) => {
@@ -220,9 +229,10 @@
       });
 
       socket.addEventListener('close', () => {
+        clearInterval(pingTimer);
         dot.classList.remove('on');
         connLabel.textContent = 'Offline';
-        setTimeout(connectWS, 1000);
+        setTimeout(connectWS, 1500);
       });
 
       socket.addEventListener('error', () => {

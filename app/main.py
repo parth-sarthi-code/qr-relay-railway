@@ -1,7 +1,6 @@
 """FastAPI application — HTTP routes and WebSocket endpoint."""
 
 import json
-
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -15,7 +14,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 # --------------------------------------------------------------------------
-# HTML page routes (served directly to avoid StaticFiles intercepting /ws)
+# HTTP Routes (Supports both GET and HEAD for cloud healthcheckers)
 # --------------------------------------------------------------------------
 
 @app.api_route("/", methods=["GET", "HEAD"])
@@ -33,44 +32,44 @@ async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer.html", media_type="text/html")
 
 
-# --------------------------------------------------------------------------
-# Status API (used for healthchecks and monitor)
-# --------------------------------------------------------------------------
-
 @app.api_route("/status", methods=["GET", "HEAD"])
 async def status():
     return await manager.get_stats()
 
 
 # --------------------------------------------------------------------------
-# WebSocket endpoint — handles text (role JSON) and binary (images)
+# WebSocket Endpoint (Handles binary images, roles, and keepalive pings)
 # --------------------------------------------------------------------------
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     accepted = await manager.connect(websocket)
     if not accepted:
-        return  # connection was rejected (at capacity)
+        return  # rejected (at capacity)
 
     try:
         while True:
             message = await websocket.receive()
 
-            # --- Text messages: JSON role announcements ---
+            # Text payload: roles or keep-alive pings
             if "text" in message:
                 text = message["text"]
                 if not text:
                     continue
                 try:
                     data = json.loads(text)
-                    if isinstance(data, dict) and data.get("type") == "role":
-                        role = data.get("role")
-                        if role in ("sender", "viewer"):
-                            await manager.set_role(websocket, role)
+                    if isinstance(data, dict):
+                        msg_type = data.get("type")
+                        if msg_type == "role":
+                            role = data.get("role")
+                            if role in ("sender", "viewer"):
+                                await manager.set_role(websocket, role)
+                        elif msg_type == "ping":
+                            await websocket.send_text('{"type":"pong"}')
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-            # --- Binary messages: QR image crops from senders ---
+            # Binary payload: QR crops from senders
             elif "bytes" in message:
                 binary = message["bytes"]
                 if binary:
@@ -80,4 +79,3 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(websocket)
     except Exception:
         await manager.disconnect(websocket)
-
