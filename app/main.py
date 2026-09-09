@@ -18,26 +18,26 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 # HTML page routes (served directly to avoid StaticFiles intercepting /ws)
 # --------------------------------------------------------------------------
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return RedirectResponse(url="/viewer.html")
 
 
-@app.get("/sender.html")
+@app.api_route("/sender.html", methods=["GET", "HEAD"])
 async def sender_page():
     return FileResponse(STATIC_DIR / "sender.html", media_type="text/html")
 
 
-@app.get("/viewer.html")
+@app.api_route("/viewer.html", methods=["GET", "HEAD"])
 async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer.html", media_type="text/html")
 
 
 # --------------------------------------------------------------------------
-# Status API
+# Status API (used for healthchecks and monitor)
 # --------------------------------------------------------------------------
 
-@app.get("/status")
+@app.api_route("/status", methods=["GET", "HEAD"])
 async def status():
     return await manager.get_stats()
 
