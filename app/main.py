@@ -51,11 +51,13 @@ async def viewer_page():
 @app.api_route("/status", methods=["GET", "HEAD"])
 async def status():
     stats = await manager.get_stats()
-    stats["version"] = "2.3.0"
+    stats["version"] = "2.4.0"
     stats["features"] = [
         "sender-ready-bell",
         "max-volume-ring",
         "compact-phone-viewfinder",
+        "60pct-camera-height",
+        "portrait-3-4-ratio",
         "pinch-to-zoom",
         "ois-optimization",
         "no-cache-headers",
