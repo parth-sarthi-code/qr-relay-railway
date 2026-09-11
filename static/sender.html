@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>QR Sender</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -56,6 +59,21 @@
       font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .vbadge {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #a29bfe;
+      background: rgba(108, 92, 231, 0.2);
+      border: 1px solid rgba(108, 92, 231, 0.45);
+      border-radius: 6px;
+      padding: 1px 5px;
+      letter-spacing: 0;
+      line-height: 1.2;
     }
     .header-right {
       display: flex;
@@ -281,7 +299,7 @@
 <body>
   <div class="app">
     <div class="header">
-      <h1>QR Sender</h1>
+      <h1>QR Sender <span class="vbadge">v2.3</span></h1>
       <div class="header-right">
         <a href="/viewer.html" class="switch-viewer-btn" title="Switch to QR Viewer">👁️ Viewer</a>
         <div class="status-strip">

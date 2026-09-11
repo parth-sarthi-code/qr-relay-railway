@@ -115,7 +115,7 @@ def main():
         # CLOUD MODE (Railway, Render, Containers)
         # --------------------------------------------------------------
         print("==========================================")
-        print("  QR Image Relay Server [Cloud Mode]")
+        print("  QR Image Relay Server [Cloud Mode] v2.3.0")
         print(f"  Listening internally on 0.0.0.0:{port}")
         print("  TLS / SSL handled by Cloud Reverse Proxy")
         print("==========================================")

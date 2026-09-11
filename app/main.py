@@ -13,28 +13,54 @@ app = FastAPI(title="QR Image Relay")
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+@app.middleware("http")
+async def add_cache_prevention_headers(request, call_next):
+    """Ensure all HTTP responses bypass aggressive browser & Cloudflare caching."""
+    response = await call_next(request)
+    for key, value in NO_CACHE_HEADERS.items():
+        response.headers[key] = value
+    return response
+
+
 # --------------------------------------------------------------------------
 # HTTP Routes (Supports both GET and HEAD for cloud healthcheckers)
 # --------------------------------------------------------------------------
 
 @app.api_route("/", methods=["GET", "HEAD"])
 async def root():
-    return RedirectResponse(url="/viewer.html")
+    return RedirectResponse(url="/viewer.html", headers=NO_CACHE_HEADERS)
 
 
 @app.api_route("/sender.html", methods=["GET", "HEAD"])
 async def sender_page():
-    return FileResponse(STATIC_DIR / "sender.html", media_type="text/html")
+    return FileResponse(STATIC_DIR / "sender.html", media_type="text/html", headers=NO_CACHE_HEADERS)
 
 
 @app.api_route("/viewer.html", methods=["GET", "HEAD"])
 async def viewer_page():
-    return FileResponse(STATIC_DIR / "viewer.html", media_type="text/html")
+    return FileResponse(STATIC_DIR / "viewer.html", media_type="text/html", headers=NO_CACHE_HEADERS)
 
 
 @app.api_route("/status", methods=["GET", "HEAD"])
 async def status():
-    return await manager.get_stats()
+    stats = await manager.get_stats()
+    stats["version"] = "2.3.0"
+    stats["features"] = [
+        "sender-ready-bell",
+        "max-volume-ring",
+        "compact-phone-viewfinder",
+        "pinch-to-zoom",
+        "ois-optimization",
+        "no-cache-headers",
+    ]
+    return stats
 
 
 # --------------------------------------------------------------------------
