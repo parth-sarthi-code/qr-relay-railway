@@ -76,19 +76,24 @@ def is_cloud_env() -> bool:
     """Check if running in a containerized cloud environment."""
     cloud_indicators = (
         "RAILWAY_ENVIRONMENT",
+        "RAILWAY_ENVIRONMENT_NAME",
         "RAILWAY_PROJECT_ID",
+        "RAILWAY_SERVICE_ID",
+        "RAILWAY_STATIC_URL",
+        "RAILWAY_PUBLIC_DOMAIN",
+        "RAILWAY_GIT_COMMIT_SHA",
         "RENDER",
         "FLY_APP_NAME",
         "K_SERVICE",
         "HEROKU_APP_NAME",
         "CONTAINER",
-        "DOCKER_CONTAINER"
+        "DOCKER_CONTAINER",
+        "PORT",
     )
     if any(os.environ.get(var) for var in cloud_indicators):
         return True
 
-    # If PORT is explicitly set and not in an interactive tty
-    if "PORT" in os.environ and not sys.stdout.isatty():
+    if Path("/.dockerenv").exists():
         return True
 
     return False

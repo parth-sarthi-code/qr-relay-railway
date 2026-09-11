@@ -8,7 +8,7 @@ class Settings:
 
     # WebSocket limits
     MAX_CONNECTIONS: int = 150          # headroom above 120 target
-    SEND_TIMEOUT: float = 1.0          # seconds — drop unresponsive viewers
+    SEND_TIMEOUT: float = 2.5          # seconds — drop unresponsive viewers (mobile-friendly)
     MAX_FRAME_SIZE: int = 1_000_000    # bytes — reject oversized blobs (~1 MB)
 
 

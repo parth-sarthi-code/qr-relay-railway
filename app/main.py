@@ -66,6 +66,14 @@ async def websocket_endpoint(websocket: WebSocket):
                                 await manager.set_role(websocket, role)
                         elif msg_type == "ping":
                             await websocket.send_text('{"type":"pong"}')
+                        elif msg_type in ("ring", "ready"):
+                            action = data.get("action", "start")
+                            await manager.broadcast_to_viewers(
+                                json.dumps({
+                                    "type": "ring",
+                                    "action": action,
+                                })
+                            )
                 except (json.JSONDecodeError, TypeError):
                     pass
 

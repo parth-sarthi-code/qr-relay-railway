@@ -140,18 +140,170 @@
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
-    .decoded-card {
+
+    /* ---- Header Right & Audio Pill ---- */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .audio-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .audio-pill:hover {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+    .audio-pill.unmuted {
+      border-color: rgba(0, 200, 83, 0.4);
+      color: #7bed9f;
+    }
+    .audio-pill.muted {
+      border-color: rgba(255, 61, 87, 0.4);
+      color: #ff6b81;
+    }
+
+    /* ---- Ready Alert Banner ---- */
+    .ready-banner {
       width: 100%;
+      max-width: 420px;
+      background: linear-gradient(135deg, rgba(255, 61, 87, 0.25) 0%, rgba(214, 48, 49, 0.4) 100%);
+      border: 2px solid #ff3d57;
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 0 25px rgba(255, 61, 87, 0.45);
+      animation: alertPulse 0.9s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+    }
+    .banner-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .banner-icon-wrap {
+      font-size: 1.6rem;
+      animation: sirenRotate 0.6s infinite alternate;
+      line-height: 1;
+    }
+    .banner-text {
+      min-width: 0;
+    }
+    .banner-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+    .banner-sub {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dismiss-btn {
+      background: #ff3d57;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(255, 61, 87, 0.5);
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+    .dismiss-btn:hover {
+      background: #ff526c;
+      transform: scale(1.04);
+      box-shadow: 0 4px 16px rgba(255, 61, 87, 0.7);
+    }
+    .dismiss-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Screen edge flashing & frame border when alarm is active */
+    body.alarm-active {
+      box-shadow: inset 0 0 45px rgba(255, 61, 87, 0.45);
+      animation: screenEdgeFlash 0.5s infinite alternate;
+    }
+    .qr-frame.alarm-border {
+      border-color: #ff3d57 !important;
+      box-shadow: 0 0 30px rgba(255, 61, 87, 0.6) !important;
+    }
+
+    @keyframes alertPulse {
+      0% {
+        box-shadow: 0 0 15px rgba(255, 61, 87, 0.35);
+        transform: scale(1);
+      }
+      100% {
+        box-shadow: 0 0 32px rgba(255, 61, 87, 0.8);
+        transform: scale(1.015);
+      }
+    }
+    @keyframes sirenRotate {
+      0% { transform: rotate(-10deg) scale(0.95); }
+      100% { transform: rotate(10deg) scale(1.15); }
+    }
+    @keyframes screenEdgeFlash {
+      0% { box-shadow: inset 0 0 20px rgba(255, 61, 87, 0.25); }
+      100% { box-shadow: inset 0 0 65px rgba(255, 61, 87, 0.7); }
+    }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="header">
       <h1>QR Viewer</h1>
-      <div class="status-pill">
-        <span id="dot" class="dot"></span>
-        <span id="connLabel">Offline</span>
+      <div class="header-right">
+        <button id="audioToggleBtn" class="audio-pill muted" type="button" title="Audio Alarm Status: Click to test or enable loud ring">
+          <span id="audioIcon">🔇</span>
+          <span id="audioText">Click to Enable Sound</span>
+        </button>
+        <div class="status-pill">
+          <span id="dot" class="dot"></span>
+          <span id="connLabel">Offline</span>
+        </div>
       </div>
+    </div>
+
+    <!-- Ready Alert Banner -->
+    <div id="readyBanner" class="ready-banner" style="display: none;">
+      <div class="banner-content">
+        <div class="banner-icon-wrap">
+          <span class="banner-siren">🚨</span>
+        </div>
+        <div class="banner-text">
+          <div class="banner-title">SENDER IS READY!</div>
+          <div class="banner-sub" id="bannerSub">Ringing at max volume…</div>
+        </div>
+      </div>
+      <button id="dismissBtn" class="dismiss-btn" type="button">Stop Alarm</button>
     </div>
 
     <div class="qr-frame" id="qrFrame">
@@ -177,20 +329,248 @@
 
   <script>
     /* ========== DOM refs ========== */
-    const dot         = document.getElementById('dot');
-    const connLabel   = document.getElementById('connLabel');
-    const qrFrame     = document.getElementById('qrFrame');
-    const qrImg       = document.getElementById('qrImg');
-    const placeholder = document.getElementById('placeholder');
-    const sendersVal  = document.getElementById('sendersVal');
-    const viewersVal  = document.getElementById('viewersVal');
-    const timeVal     = document.getElementById('timeVal');
+    const dot            = document.getElementById('dot');
+    const connLabel      = document.getElementById('connLabel');
+    const qrFrame        = document.getElementById('qrFrame');
+    const qrImg          = document.getElementById('qrImg');
+    const placeholder    = document.getElementById('placeholder');
+    const sendersVal     = document.getElementById('sendersVal');
+    const viewersVal     = document.getElementById('viewersVal');
+    const timeVal        = document.getElementById('timeVal');
+    const audioToggleBtn = document.getElementById('audioToggleBtn');
+    const audioIcon      = document.getElementById('audioIcon');
+    const audioText      = document.getElementById('audioText');
+    const readyBanner    = document.getElementById('readyBanner');
+    const bannerSub      = document.getElementById('bannerSub');
+    const dismissBtn     = document.getElementById('dismissBtn');
 
     /* ========== State ========== */
     const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
     const wsUrl   = `${wsProto}://${location.host}/ws`;
     let socket = null;
     let prevObjectURL = null;
+    let titleFlashTimer = null;
+    const originalTitle = document.title;
+
+    /* ========== Web Audio API Maximum Volume Alarm Engine ========== */
+    class MaxVolumeAlarm {
+      constructor() {
+        this.ctx = null;
+        this.compressor = null;
+        this.masterGain = null;
+        this.isPlaying = false;
+        this.stepTimer = null;
+        this.autoStopTimer = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return false;
+
+          this.ctx = new AudioContextClass();
+
+          // Compressor boosts lower frequencies and acts as brickwall loudness maximizer
+          this.compressor = this.ctx.createDynamicsCompressor();
+          this.compressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
+          this.compressor.knee.setValueAtTime(3, this.ctx.currentTime);
+          this.compressor.ratio.setValueAtTime(16, this.ctx.currentTime);
+          this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+          this.compressor.release.setValueAtTime(0.1, this.ctx.currentTime);
+
+          // Master Gain Node set to 1.0 (Maximum digital 0 dBFS amplitude)
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+
+          this.compressor.connect(this.masterGain);
+          this.masterGain.connect(this.ctx.destination);
+        }
+
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().then(() => {
+            updateAudioStatusUI(true);
+          }).catch(() => {
+            updateAudioStatusUI(false);
+          });
+        } else if (this.ctx && this.ctx.state === 'running') {
+          updateAudioStatusUI(true);
+        }
+
+        return this.ctx && this.ctx.state === 'running';
+      }
+
+      playBurst(f1, f2, durationSec = 0.22) {
+        if (!this.ctx) this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+
+        const now = this.ctx.currentTime;
+        const toneGain = this.ctx.createGain();
+        toneGain.gain.setValueAtTime(0.9, now);
+        toneGain.gain.setValueAtTime(0.9, now + durationSec - 0.03);
+        toneGain.gain.linearRampToValueAtTime(0.001, now + durationSec);
+
+        // Oscillator 1: High harmonics square wave (very piercing and loud)
+        const osc1 = this.ctx.createOscillator();
+        osc1.type = 'square';
+        osc1.frequency.setValueAtTime(f1, now);
+
+        // Oscillator 2: Sawtooth wave for dense harmonic body
+        const osc2 = this.ctx.createOscillator();
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(f2, now);
+
+        osc1.connect(toneGain);
+        osc2.connect(toneGain);
+        toneGain.connect(this.compressor);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + durationSec);
+        osc2.stop(now + durationSec);
+      }
+
+      playTestChime() {
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.6, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+
+      start() {
+        this.init();
+        if (this.isPlaying) return;
+        this.isPlaying = true;
+
+        // Piercing emergency cadence: dual bursts followed by brief pause
+        let step = 0;
+        const tick = () => {
+          if (!this.isPlaying) return;
+          if (step % 3 === 0) {
+            this.playBurst(853, 960, 0.22);
+          } else if (step % 3 === 1) {
+            this.playBurst(960, 1200, 0.22);
+          }
+          step++;
+        };
+
+        tick();
+        this.stepTimer = setInterval(tick, 280);
+
+        // Automatically stop ringing after 20 seconds
+        clearTimeout(this.autoStopTimer);
+        this.autoStopTimer = setTimeout(() => {
+          stopReadyAlarm();
+        }, 20000);
+      }
+
+      stop() {
+        this.isPlaying = false;
+        if (this.stepTimer) {
+          clearInterval(this.stepTimer);
+          this.stepTimer = null;
+        }
+        clearTimeout(this.autoStopTimer);
+      }
+    }
+
+    const alarm = new MaxVolumeAlarm();
+
+    function updateAudioStatusUI(isUnlocked) {
+      if (!audioToggleBtn) return;
+      if (isUnlocked) {
+        audioToggleBtn.classList.remove('muted');
+        audioToggleBtn.classList.add('unmuted');
+        if (audioIcon) audioIcon.textContent = '🔊';
+        if (audioText) audioText.textContent = 'Sound Active (Max)';
+      } else {
+        audioToggleBtn.classList.remove('unmuted');
+        audioToggleBtn.classList.add('muted');
+        if (audioIcon) audioIcon.textContent = '🔇';
+        if (audioText) audioText.textContent = 'Click to Enable Sound';
+      }
+    }
+
+    // Auto-unlock audio context on any user interaction with the page
+    ['click', 'touchstart', 'keydown'].forEach((evt) => {
+      document.addEventListener(evt, () => {
+        alarm.init();
+      }, { passive: true });
+    });
+
+    if (audioToggleBtn) {
+      audioToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        alarm.init();
+        alarm.playTestChime();
+      });
+    }
+
+    /* ========== Ready Alarm Handlers ========== */
+    function triggerReadyAlarm() {
+      alarm.start();
+
+      // Mobile device vibration
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate([300, 100, 300, 100, 500, 200]); } catch (_) {}
+      }
+
+      // Visual banner & glowing borders
+      if (readyBanner) readyBanner.style.display = 'flex';
+      document.body.classList.add('alarm-active');
+      if (qrFrame) qrFrame.classList.add('alarm-border');
+
+      if (!alarm.ctx || alarm.ctx.state !== 'running') {
+        if (bannerSub) bannerSub.textContent = 'Click anywhere to play alarm sound!';
+      } else {
+        if (bannerSub) bannerSub.textContent = 'Ringing at max volume…';
+      }
+
+      // Tab title flashing
+      clearInterval(titleFlashTimer);
+      let flashState = false;
+      titleFlashTimer = setInterval(() => {
+        flashState = !flashState;
+        document.title = flashState ? '🚨 SENDER READY!' : '🔔 RINGING!';
+      }, 500);
+    }
+
+    function stopReadyAlarm() {
+      alarm.stop();
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(0); } catch (_) {}
+      }
+      if (readyBanner) readyBanner.style.display = 'none';
+      document.body.classList.remove('alarm-active');
+      if (qrFrame) qrFrame.classList.remove('alarm-border');
+      clearInterval(titleFlashTimer);
+      document.title = originalTitle;
+    }
+
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopReadyAlarm();
+      });
+    }
+
+    if (readyBanner) {
+      readyBanner.addEventListener('click', () => {
+        if (alarm.isPlaying && (!alarm.ctx || alarm.ctx.state !== 'running')) {
+          alarm.init();
+          if (bannerSub) bannerSub.textContent = 'Ringing at max volume…';
+        }
+      });
+    }
 
     /* ========== WebSocket ========== */
     let pingTimer = null;
@@ -218,12 +598,18 @@
           displayImage(ev.data);
           return;
         }
-        // Text — JSON status
+        // Text — JSON status or ring event
         try {
           const msg = JSON.parse(ev.data);
           if (msg && msg.type === 'status') {
             sendersVal.textContent = msg.senders;
             viewersVal.textContent = msg.viewers;
+          } else if (msg && msg.type === 'ring') {
+            if (msg.action === 'start') {
+              triggerReadyAlarm();
+            } else if (msg.action === 'stop') {
+              stopReadyAlarm();
+            }
           }
         } catch (_) {}
       });
@@ -232,6 +618,7 @@
         clearInterval(pingTimer);
         dot.classList.remove('on');
         connLabel.textContent = 'Offline';
+        stopReadyAlarm();
         setTimeout(connectWS, 1500);
       });
 
@@ -268,3 +655,4 @@
   </script>
 </body>
 </html>
+

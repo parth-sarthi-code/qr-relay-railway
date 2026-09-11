@@ -38,8 +38,10 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      padding: 12px;
-      gap: 10px;
+      padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+      gap: 8px;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     /* ---- Header ---- */
@@ -47,46 +49,62 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
+      height: 32px;
     }
     .header h1 {
-      font-size: 1.15rem;
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
-    .status-pill {
+    .status-strip {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 5px 12px;
-      font-size: 0.78rem;
+      padding: 4px 10px;
+      font-size: 0.74rem;
       font-weight: 500;
+      font-variant-numeric: tabular-nums;
     }
     .dot {
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--red);
       transition: background 0.3s;
+      flex-shrink: 0;
     }
     .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .sep {
+      color: var(--border);
+      font-weight: 300;
+      font-size: 0.8rem;
+    }
+    .strip-val {
+      color: var(--text);
+      font-weight: 600;
+    }
 
-    /* ---- Camera ---- */
+    /* ---- Camera Wrap ---- */
     .camera-wrap {
       position: relative;
       width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
       border-radius: var(--radius);
       overflow: hidden;
       border: 1px solid var(--border);
       background: #000;
-      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     video {
       display: block;
       width: 100%;
-      aspect-ratio: 3/4;
-      max-height: 46dvh;
+      height: 100%;
       object-fit: cover;
     }
     .scan-overlay {
@@ -97,84 +115,152 @@
       transition: all 0.08s ease-out;
       box-shadow: 0 0 12px var(--accent-glow);
       display: none;
+      z-index: 2;
+    }
+    .hud-badge {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(12, 12, 15, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--text);
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: 3;
+      white-space: nowrap;
+      max-width: 90%;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }
 
-    /* ---- Info Cards ---- */
-    .cards {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 10px 12px;
-    }
-    .card-label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-dim);
-      margin-bottom: 4px;
-    }
-    .card-value {
-      font-size: 0.95rem;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-    .card.full { grid-column: 1 / -1; }
-
-    /* ---- Controls ---- */
+    /* ---- Controls Section ---- */
     .controls {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-top: auto;
-      padding-bottom: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
-    .control-row {
+
+    /* Ready Button (Primary Action) */
+    .ready-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(108, 92, 231, 0.45);
+      background: linear-gradient(135deg, #6c5ce7 0%, #4834d4 100%);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      box-shadow: 0 3px 14px rgba(108, 92, 231, 0.35);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      height: 44px;
+    }
+    .ready-btn:hover {
+      background: linear-gradient(135deg, #7d6dfa 0%, #5742e8 100%);
+      box-shadow: 0 5px 18px rgba(108, 92, 231, 0.5);
+    }
+    .ready-btn:active {
+      transform: scale(0.98);
+    }
+    .ready-btn .btn-icon {
+      font-size: 1.15rem;
+      display: inline-block;
+    }
+
+    /* Ringing active state */
+    .ready-btn.ringing {
+      background: linear-gradient(135deg, #ff3d57 0%, #d63031 100%);
+      border-color: rgba(255, 61, 87, 0.7);
+      box-shadow: 0 0 20px rgba(255, 61, 87, 0.65);
+      animation: btnPulse 1s infinite alternate;
+    }
+    .ready-btn.ringing .btn-icon {
+      animation: bellShake 0.5s infinite;
+    }
+
+    @keyframes btnPulse {
+      0% { box-shadow: 0 0 10px rgba(255, 61, 87, 0.4); transform: scale(1); }
+      100% { box-shadow: 0 0 24px rgba(255, 61, 87, 0.9); transform: scale(1.015); }
+    }
+    @keyframes bellShake {
+      0%, 100% { transform: rotate(0); }
+      20% { transform: rotate(14deg); }
+      40% { transform: rotate(-14deg); }
+      60% { transform: rotate(10deg); }
+      80% { transform: rotate(-10deg); }
+    }
+
+    /* Compact Toolbar: Camera & Zoom in ONE slim row */
+    .toolbar-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      height: 38px;
+    }
+    .tool-chip {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 10px 12px;
-    }
-    .control-row label {
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--text-dim);
-      display: block;
-      margin-bottom: 6px;
-    }
-    select {
-      width: 100%;
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 0.85rem;
-      font-family: inherit;
-      outline: none;
-    }
-    select:focus { border-color: var(--accent); }
-
-    .zoom-row {
+      padding: 0 8px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
+      min-width: 0;
     }
-    input[type="range"] {
+    .tool-icon {
+      font-size: 0.85rem;
+      opacity: 0.75;
+      flex-shrink: 0;
+    }
+    select.compact-select {
       flex: 1;
+      min-width: 0;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      font-size: 0.78rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      padding: 0;
+    }
+    select.compact-select option {
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .tool-chip input[type="range"] {
+      flex: 1;
+      min-width: 0;
       accent-color: var(--accent);
+      height: 4px;
+      cursor: pointer;
     }
     .zoom-val {
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      min-width: 40px;
+      min-width: 28px;
       text-align: right;
       font-variant-numeric: tabular-nums;
+      color: var(--text-dim);
     }
   </style>
 </head>
@@ -182,40 +268,35 @@
   <div class="app">
     <div class="header">
       <h1>QR Sender</h1>
-      <div class="status-pill">
+      <div class="status-strip">
         <span id="dot" class="dot"></span>
         <span id="connLabel">Offline</span>
+        <span class="sep">•</span>
+        <span class="strip-val" id="peersVal">S:0 V:0</span>
+        <span class="sep">•</span>
+        <span class="strip-val" id="latencyVal">—</span>
       </div>
     </div>
 
     <div class="camera-wrap">
+      <div class="hud-badge" id="statusVal">Starting camera…</div>
       <video id="video" autoplay playsinline muted></video>
       <div id="scanOverlay" class="scan-overlay"></div>
     </div>
 
-    <div class="cards">
-      <div class="card">
-        <div class="card-label">Latency</div>
-        <div class="card-value" id="latencyVal">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Peers</div>
-        <div class="card-value" id="peersVal">S:0 V:0</div>
-      </div>
-      <div class="card full">
-        <div class="card-label">Status</div>
-        <div class="card-value" id="statusVal">Starting camera…</div>
-      </div>
-    </div>
-
     <div class="controls">
-      <div class="control-row">
-        <label for="camSelect">Camera</label>
-        <select id="camSelect"></select>
-      </div>
-      <div class="control-row">
-        <label for="zoomSlider">Zoom</label>
-        <div class="zoom-row">
+      <button id="readyBtn" class="ready-btn" type="button">
+        <span class="btn-icon">🔔</span>
+        <span class="btn-text">Ready (Ring Viewer)</span>
+      </button>
+
+      <div class="toolbar-row">
+        <div class="tool-chip">
+          <span class="tool-icon">📷</span>
+          <select id="camSelect" class="compact-select"></select>
+        </div>
+        <div class="tool-chip">
+          <span class="tool-icon">🔍</span>
           <input id="zoomSlider" type="range" min="1" max="1" step="0.1" value="1" disabled />
           <span class="zoom-val" id="zoomVal">1.0×</span>
         </div>
@@ -236,6 +317,7 @@
     const camSelect  = document.getElementById('camSelect');
     const zoomSlider = document.getElementById('zoomSlider');
     const zoomVal    = document.getElementById('zoomVal');
+    const readyBtn   = document.getElementById('readyBtn');
 
     /* ========== State ========== */
     const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -246,6 +328,9 @@
     let lastQRText = null;
     let scanStarted = false;
     let lastScanTime = 0;
+    let isRinging = false;
+    let ringAutoResetTimer = null;
+    let viewerCount = 0;
 
     // Offscreen canvases — allocated once, reused every frame
     const detectCanvas = document.createElement('canvas');
@@ -267,6 +352,64 @@
         } catch (_) { /* fallback to jsQR */ }
       }
     })();
+
+    /* ========== Ready Alert (Ring Viewers) ========== */
+    function setRingingState(active) {
+      isRinging = active;
+      clearTimeout(ringAutoResetTimer);
+      const icon = readyBtn ? readyBtn.querySelector('.btn-icon') : null;
+      const text = readyBtn ? readyBtn.querySelector('.btn-text') : null;
+
+      if (isRinging) {
+        if (readyBtn) readyBtn.classList.add('ringing');
+        if (icon) icon.textContent = '🔕';
+        if (text) text.textContent = 'Ringing Viewers... (Click to Stop)';
+        statusVal.textContent = viewerCount > 0
+          ? `Ready signal sent to ${viewerCount} viewer(s)`
+          : 'Ready signal sent (No viewers online)';
+
+        // Auto-reset after 15 seconds to prevent runaway ringing
+        ringAutoResetTimer = setTimeout(() => {
+          stopRinging();
+        }, 15000);
+      } else {
+        if (readyBtn) readyBtn.classList.remove('ringing');
+        if (icon) icon.textContent = '🔔';
+        if (text) text.textContent = 'Ready (Ring Viewer)';
+      }
+    }
+
+    function sendRingSignal(action) {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ring', action: action }));
+        return true;
+      }
+      return false;
+    }
+
+    function startRinging() {
+      if (sendRingSignal('start')) {
+        setRingingState(true);
+      } else {
+        statusVal.textContent = 'Cannot ring: Offline';
+      }
+    }
+
+    function stopRinging() {
+      sendRingSignal('stop');
+      setRingingState(false);
+      statusVal.textContent = 'Ringing stopped';
+    }
+
+    if (readyBtn) {
+      readyBtn.addEventListener('click', () => {
+        if (isRinging) {
+          stopRinging();
+        } else {
+          startRinging();
+        }
+      });
+    }
 
     /* ========== WebSocket ========== */
     let pingTimer = null;
@@ -292,6 +435,7 @@
         try {
           const msg = JSON.parse(ev.data);
           if (msg && msg.type === 'status') {
+            viewerCount = msg.viewers || 0;
             peersVal.textContent = `S:${msg.senders} V:${msg.viewers}`;
           }
         } catch (_) { /* binary or non-JSON — ignore on sender */ }
@@ -301,6 +445,7 @@
         clearInterval(pingTimer);
         dot.classList.remove('on');
         connLabel.textContent = 'Offline';
+        if (isRinging) setRingingState(false);
         setTimeout(connectWS, 1500);
       });
 
@@ -522,26 +667,39 @@
     }
 
     function showOverlay(bbox, scale) {
-      // bbox is in detect-canvas coords, video element is sized differently
       const rect = video.getBoundingClientRect();
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-      if (!vw || !vh) return;
+      if (!vw || !vh || !rect.width || !rect.height) return;
 
-      // Scale bbox from detect coords → full-res → element coords
-      const elScaleX = rect.width / vw;
-      const elScaleY = rect.height / vh;
+      // Calculate object-fit: cover geometry
+      const videoRatio = vw / vh;
+      const elemRatio = rect.width / rect.height;
+      let renderW, renderH, offsetX, offsetY;
 
-      const ox = (bbox.x / scale) * elScaleX;
-      const oy = (bbox.y / scale) * elScaleY;
-      const ow = (bbox.w / scale) * elScaleX;
-      const oh = (bbox.h / scale) * elScaleY;
+      if (elemRatio > videoRatio) {
+        renderW = rect.width;
+        renderH = rect.width / videoRatio;
+        offsetX = 0;
+        offsetY = (rect.height - renderH) / 2;
+      } else {
+        renderH = rect.height;
+        renderW = rect.height * videoRatio;
+        offsetX = (rect.width - renderW) / 2;
+        offsetY = 0;
+      }
+
+      const elScale = renderW / vw;
+      const ox = (bbox.x / scale) * elScale + offsetX;
+      const oy = (bbox.y / scale) * elScale + offsetY;
+      const ow = (bbox.w / scale) * elScale;
+      const oh = (bbox.h / scale) * elScale;
 
       overlay.style.display = 'block';
-      overlay.style.left   = `${ox}px`;
-      overlay.style.top    = `${oy}px`;
-      overlay.style.width  = `${ow}px`;
-      overlay.style.height = `${oh}px`;
+      overlay.style.left   = `${Math.round(ox)}px`;
+      overlay.style.top    = `${Math.round(oy)}px`;
+      overlay.style.width  = `${Math.round(ow)}px`;
+      overlay.style.height = `${Math.round(oh)}px`;
     }
 
     /* ========== Init ========== */

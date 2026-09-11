@@ -77,6 +77,16 @@ class WebSocketManager:
         for ws in viewers:
             asyncio.create_task(self._safe_send_bytes(ws, data))
 
+    async def broadcast_to_viewers(self, text: str) -> None:
+        """Send a text message to all active viewers."""
+        async with self._lock:
+            viewers = [
+                ws for ws, role in self._connections.items() if role == "viewer"
+            ]
+
+        for ws in viewers:
+            asyncio.create_task(self._safe_send_text(ws, text))
+
 
 
     # ------------------------------------------------------------------
