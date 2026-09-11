@@ -50,12 +50,38 @@
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
-      height: 32px;
+      height: 34px;
     }
     .header h1 {
       font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: -0.02em;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .switch-viewer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .switch-viewer-btn:hover {
+      background: var(--surface2);
+      border-color: var(--accent);
+      color: #fff;
     }
     .status-strip {
       display: inline-flex;
@@ -87,12 +113,14 @@
       font-weight: 600;
     }
 
-    /* ---- Camera Wrap ---- */
+    /* ---- Camera Wrap (Compact & Reduced Size for Phone) ---- */
     .camera-wrap {
       position: relative;
       width: 100%;
-      flex: 1 1 auto;
-      min-height: 0;
+      max-width: 360px;
+      max-height: 33dvh;
+      aspect-ratio: 4 / 3;
+      margin: 0 auto;
       border-radius: var(--radius);
       overflow: hidden;
       border: 1px solid var(--border);
@@ -100,6 +128,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+      touch-action: none;
     }
     video {
       display: block;
@@ -252,13 +282,16 @@
   <div class="app">
     <div class="header">
       <h1>QR Sender</h1>
-      <div class="status-strip">
-        <span id="dot" class="dot"></span>
-        <span id="connLabel">Offline</span>
-        <span class="sep">•</span>
-        <span class="strip-val" id="peersVal">S:0 V:0</span>
-        <span class="sep">•</span>
-        <span class="strip-val" id="latencyVal">—</span>
+      <div class="header-right">
+        <a href="/viewer.html" class="switch-viewer-btn" title="Switch to QR Viewer">👁️ Viewer</a>
+        <div class="status-strip">
+          <span id="dot" class="dot"></span>
+          <span id="connLabel">Offline</span>
+          <span class="sep">•</span>
+          <span class="strip-val" id="peersVal">S:0 V:0</span>
+          <span class="sep">•</span>
+          <span class="strip-val" id="latencyVal">—</span>
+        </div>
       </div>
     </div>
 
@@ -420,14 +453,43 @@
         const constraint = deviceId
           ? { deviceId: { exact: deviceId } }
           : { facingMode: 'environment' };
+
+        // Optimized stream for phone hardware OIS & minimal motion blur:
+        // 1080p stream at steady 30fps enables OEM camera HAL optical stabilization
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { ...constraint, width: { ideal: 1280 }, height: { ideal: 960 } },
+          video: {
+            ...constraint,
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30, min: 24 },
+          },
           audio: false,
         });
 
         activeStream = stream;
         video.srcObject = stream;
         videoTrack = stream.getVideoTracks()[0] || null;
+
+        // Apply continuous autofocus & stabilization hints where supported by OEM HAL
+        if (videoTrack?.getCapabilities) {
+          try {
+            const caps = videoTrack.getCapabilities();
+            const advanced = [];
+            if (caps.focusMode && caps.focusMode.includes('continuous')) {
+              advanced.push({ focusMode: 'continuous' });
+            }
+            if (caps.exposureMode && caps.exposureMode.includes('continuous')) {
+              advanced.push({ exposureMode: 'continuous' });
+            }
+            if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) {
+              advanced.push({ whiteBalanceMode: 'continuous' });
+            }
+            if (advanced.length > 0) {
+              await videoTrack.applyConstraints({ advanced });
+            }
+          } catch (_) {}
+        }
+
         setupZoom(videoTrack);
         await populateCameras(videoTrack?.getSettings?.()?.deviceId);
         statusVal.textContent = 'Camera active — scanning';
@@ -459,6 +521,20 @@
       if (camSelect.value) startCamera(camSelect.value);
     });
 
+    /* ========== Zoom & Pinch-to-Zoom ========== */
+    function applyZoom(val) {
+      if (!videoTrack?.getCapabilities) return;
+      const caps = videoTrack.getCapabilities();
+      if (!caps.zoom) return;
+      const clamped = Math.min(Math.max(val, caps.zoom.min ?? 1), caps.zoom.max ?? 1);
+      const rounded = Math.round(clamped * 10) / 10;
+      zoomSlider.value = String(rounded);
+      zoomVal.textContent = `${rounded.toFixed(1)}×`;
+      try {
+        videoTrack.applyConstraints({ advanced: [{ zoom: rounded }] });
+      } catch (_) {}
+    }
+
     function setupZoom(track) {
       if (!track?.getCapabilities) { zoomSlider.disabled = true; return; }
       const caps = track.getCapabilities();
@@ -470,11 +546,43 @@
       zoomSlider.value = String(init);
       zoomVal.textContent = `${init.toFixed(1)}×`;
       zoomSlider.disabled = false;
-      zoomSlider.oninput = async () => {
-        const v = Number(zoomSlider.value);
-        zoomVal.textContent = `${v.toFixed(1)}×`;
-        try { await track.applyConstraints({ advanced: [{ zoom: v }] }); } catch (_) {}
+      zoomSlider.oninput = () => {
+        applyZoom(Number(zoomSlider.value));
       };
+    }
+
+    // Touch gesture pinch-to-zoom on camera-wrap
+    const cameraWrapElem = document.querySelector('.camera-wrap');
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+
+    if (cameraWrapElem) {
+      cameraWrapElem.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          pinchStartDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          pinchStartZoom = Number(zoomSlider.value) || 1;
+        }
+      }, { passive: true });
+
+      cameraWrapElem.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinchStartDist > 0 && !zoomSlider.disabled) {
+          const currentDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const factor = currentDist / pinchStartDist;
+          applyZoom(pinchStartZoom * factor);
+        }
+      }, { passive: true });
+
+      cameraWrapElem.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          pinchStartDist = 0;
+        }
+      }, { passive: true });
     }
 
     /* ========== Detection & Crop Loop ========== */
