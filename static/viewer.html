@@ -517,6 +517,14 @@
 
     /* ========== Ready Alarm Handlers ========== */
     function triggerReadyAlarm() {
+      // Do NOT ring on the sender's device (e.g. if viewer is open in background on sender phone)
+      try {
+        const lastSenderRing = Number(localStorage.getItem('sender_sent_ring') || 0);
+        if (Date.now() - lastSenderRing < 4000) {
+          return;
+        }
+      } catch (_) {}
+
       alarm.start();
 
       // Mobile device vibration

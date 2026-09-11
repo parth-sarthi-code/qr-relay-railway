@@ -183,27 +183,11 @@
       display: inline-block;
     }
 
-    /* Ringing active state */
-    .ready-btn.ringing {
-      background: linear-gradient(135deg, #ff3d57 0%, #d63031 100%);
-      border-color: rgba(255, 61, 87, 0.7);
-      box-shadow: 0 0 20px rgba(255, 61, 87, 0.65);
-      animation: btnPulse 1s infinite alternate;
-    }
-    .ready-btn.ringing .btn-icon {
-      animation: bellShake 0.5s infinite;
-    }
-
-    @keyframes btnPulse {
-      0% { box-shadow: 0 0 10px rgba(255, 61, 87, 0.4); transform: scale(1); }
-      100% { box-shadow: 0 0 24px rgba(255, 61, 87, 0.9); transform: scale(1.015); }
-    }
-    @keyframes bellShake {
-      0%, 100% { transform: rotate(0); }
-      20% { transform: rotate(14deg); }
-      40% { transform: rotate(-14deg); }
-      60% { transform: rotate(10deg); }
-      80% { transform: rotate(-10deg); }
+    /* Feedback state when Ready is clicked (calm confirmation — no alarm/ringing on sender!) */
+    .ready-btn.sent {
+      background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+      border-color: rgba(0, 184, 148, 0.6);
+      box-shadow: 0 3px 12px rgba(0, 184, 148, 0.35);
     }
 
     /* Compact Toolbar: Camera & Zoom in ONE slim row */
@@ -287,7 +271,7 @@
     <div class="controls">
       <button id="readyBtn" class="ready-btn" type="button">
         <span class="btn-icon">🔔</span>
-        <span class="btn-text">Ready (Ring Viewer)</span>
+        <span class="btn-text">Ready</span>
       </button>
 
       <div class="toolbar-row">
@@ -328,8 +312,6 @@
     let lastQRText = null;
     let scanStarted = false;
     let lastScanTime = 0;
-    let isRinging = false;
-    let ringAutoResetTimer = null;
     let viewerCount = 0;
 
     // Offscreen canvases — allocated once, reused every frame
@@ -353,62 +335,38 @@
       }
     })();
 
-    /* ========== Ready Alert (Ring Viewers) ========== */
-    function setRingingState(active) {
-      isRinging = active;
-      clearTimeout(ringAutoResetTimer);
-      const icon = readyBtn ? readyBtn.querySelector('.btn-icon') : null;
-      const text = readyBtn ? readyBtn.querySelector('.btn-text') : null;
+    /* ========== Ready Signal (Rings Viewers) ========== */
+    let readyFeedbackTimer = null;
 
-      if (isRinging) {
-        if (readyBtn) readyBtn.classList.add('ringing');
-        if (icon) icon.textContent = '🔕';
-        if (text) text.textContent = 'Ringing Viewers... (Click to Stop)';
+    function sendReadySignal() {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ring', action: 'start' }));
+        try { localStorage.setItem('sender_sent_ring', String(Date.now())); } catch (_) {}
+
+        const icon = readyBtn ? readyBtn.querySelector('.btn-icon') : null;
+        const text = readyBtn ? readyBtn.querySelector('.btn-text') : null;
+
+        if (readyBtn) readyBtn.classList.add('sent');
+        if (icon) icon.textContent = '✓';
+        if (text) text.textContent = 'Ready Sent';
+
         statusVal.textContent = viewerCount > 0
           ? `Ready signal sent to ${viewerCount} viewer(s)`
           : 'Ready signal sent (No viewers online)';
 
-        // Auto-reset after 15 seconds to prevent runaway ringing
-        ringAutoResetTimer = setTimeout(() => {
-          stopRinging();
-        }, 15000);
+        clearTimeout(readyFeedbackTimer);
+        readyFeedbackTimer = setTimeout(() => {
+          if (readyBtn) readyBtn.classList.remove('sent');
+          if (icon) icon.textContent = '🔔';
+          if (text) text.textContent = 'Ready';
+        }, 2000);
       } else {
-        if (readyBtn) readyBtn.classList.remove('ringing');
-        if (icon) icon.textContent = '🔔';
-        if (text) text.textContent = 'Ready (Ring Viewer)';
+        statusVal.textContent = 'Cannot send: Offline';
       }
-    }
-
-    function sendRingSignal(action) {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'ring', action: action }));
-        return true;
-      }
-      return false;
-    }
-
-    function startRinging() {
-      if (sendRingSignal('start')) {
-        setRingingState(true);
-      } else {
-        statusVal.textContent = 'Cannot ring: Offline';
-      }
-    }
-
-    function stopRinging() {
-      sendRingSignal('stop');
-      setRingingState(false);
-      statusVal.textContent = 'Ringing stopped';
     }
 
     if (readyBtn) {
-      readyBtn.addEventListener('click', () => {
-        if (isRinging) {
-          stopRinging();
-        } else {
-          startRinging();
-        }
-      });
+      readyBtn.addEventListener('click', sendReadySignal);
     }
 
     /* ========== WebSocket ========== */
@@ -445,7 +403,6 @@
         clearInterval(pingTimer);
         dot.classList.remove('on');
         connLabel.textContent = 'Offline';
-        if (isRinging) setRingingState(false);
         setTimeout(connectWS, 1500);
       });
 
